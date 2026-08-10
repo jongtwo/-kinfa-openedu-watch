@@ -158,7 +158,7 @@ def test():
 
 
 def kst_minutes(now=None):
-    t = time.gmtime((now if now else time.time()) + 9 * 3600)  # 러너는 UTC
+    t = time.gmtime((time.time() if now is None else now) + 9 * 3600)  # 러너는 UTC
     return t.tm_hour * 60 + t.tm_min
 
 
