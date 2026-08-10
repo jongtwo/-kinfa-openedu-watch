@@ -1,0 +1,27 @@
+name: kinfa-openedu-watch
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 이전 실행의 세션 쿠키와 알림 이력을 재사용 (매번 로그인/중복 알림 방지)
+      - uses: actions/cache@v4
+        with:
+          path: |
+            state.txt
+            cookies.txt
+          key: kinfa-state-${{ github.run_id }}
+          restore-keys: kinfa-state-
+
+      - run: python watch.py
+        env:
+          KINFA_ID: ${{ secrets.KINFA_ID }}
+          KINFA_PW: ${{ secrets.KINFA_PW }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
