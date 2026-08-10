@@ -128,7 +128,11 @@ def main():
         return
     open(STATE, "w", encoding="utf-8").write(digest)
     notify(cfg, "오픈교육 새 글", text[:400])
-    print("알림 전송:", text[:120])
+    if os.environ.get("GITHUB_ACTIONS"):
+        # 공개 저장소의 Actions 로그에 페이지 내용(강사명 등)을 남기지 않는다.
+        print("알림 전송 (본문 %d자)" % len(text))
+    else:
+        print("알림 전송:", text[:120])
 
 
 def test():
