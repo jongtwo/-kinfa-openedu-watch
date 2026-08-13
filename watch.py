@@ -20,9 +20,9 @@ LIST_URL = BASE + "/instr/info/instrInfoList.do?instrTabCd=2"
 EMPTY = "접수중인 오픈 교육이 없습니다."
 DENIED = "강사 회원만 접근 가능합니다."
 
-# 글이 주로 올라오는 시간대(KST 10:00~14:30). 이 안에서는 5분 cron 한계를 넘어 촘촘히 본다.
-WINDOWS = ((10 * 60, 14 * 60 + 30),)
-INTERVAL = 180  # 시간대 안에서의 확인 간격(초)
+# 글이 주로 올라오는 시간대(KST 10:00~14:30). cron 지연을 흡수하려고 09:50 부터 켠다.
+WINDOWS = ((9 * 60 + 50, 14 * 60 + 30),)
+INTERVAL = 60  # 시간대 안에서의 확인 간격(초)
 
 # 사이트가 잠깐 먹통일 때 실행 전체를 실패시키지 않기 위해 무시할 오류들.
 NET_ERRORS = (urllib.error.URLError, TimeoutError, ConnectionError)
@@ -156,7 +156,8 @@ def test():
     assert list_text("x찾기<div>가 나</div><footer>무시</footer>") == "가 나"
     assert in_window(10 * 60) and in_window(14 * 60)  # 10시, 2시 정각
     assert in_window(12 * 60) and in_window(14 * 60 + 29)
-    assert not in_window(9 * 60 + 59) and not in_window(14 * 60 + 30)  # 경계
+    assert in_window(9 * 60 + 50)  # 09:50 부터 켜짐
+    assert not in_window(9 * 60 + 49) and not in_window(14 * 60 + 30)  # 경계
     assert kst_minutes(0) == 9 * 60  # UTC 0시 = KST 9시
     print("self-check OK")
 
