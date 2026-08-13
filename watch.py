@@ -9,6 +9,7 @@ import secrets
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from base64 import b64encode
@@ -22,6 +23,9 @@ DENIED = "강사 회원만 접근 가능합니다."
 # 글이 주로 올라오는 시간대(KST 10:00~14:30). 이 안에서는 5분 cron 한계를 넘어 촘촘히 본다.
 WINDOWS = ((10 * 60, 14 * 60 + 30),)
 INTERVAL = 180  # 시간대 안에서의 확인 간격(초)
+
+# 사이트가 잠깐 먹통일 때 실행 전체를 실패시키지 않기 위해 무시할 오류들.
+NET_ERRORS = (urllib.error.URLError, TimeoutError, ConnectionError)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 STATE = os.path.join(HERE, "state.txt")
@@ -178,13 +182,21 @@ if __name__ == "__main__":
     elif arg == "--ping":
         ping()
     elif os.environ.get("GITHUB_ACTIONS") and in_window(kst_minutes()):
-        # GitHub cron 은 최소 5분 간격이라, 글 올라오는 시간대에는
-        # 한 번의 실행 안에서 INTERVAL 마다 다시 확인한다 (세션 재사용).
-        end = time.time() + 270
-        while True:
-            main()
-            if time.time() >= end:
-                break
+        # GitHub 은 cron 트리거를 40~60분까지 지연시킨다. 그래서 시간대가 시작되면
+        # 이 실행 하나가 끝까지 살아 있으면서 INTERVAL 마다 확인한다 (세션 재사용).
+        fails = 0
+        while in_window(kst_minutes()):
+            try:
+                main()
+                fails = 0
+            except NET_ERRORS + (SystemExit,) as e:
+                fails += 1
+                print("확인 실패(%d회 연속): %s" % (fails, e))
+                if fails >= 3:  # 일시적 먹통이 아니라 진짜 고장이면 알 수 있게 실패시킨다
+                    raise
             time.sleep(INTERVAL)
     else:
-        main()
+        try:
+            main()
+        except NET_ERRORS as e:
+            print("일시적 오류 무시:", e)

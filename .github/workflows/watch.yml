@@ -2,12 +2,22 @@ name: kinfa-openedu-watch
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    # 하루 1회 cron 은 고빈도 cron 처럼 심하게 지연되지 않는다.
+    # 09:50 KST 에 뜬 실행이 14:30 KST 까지 살아 있으면서 3분마다 확인한다.
+    - cron: "50 0 * * *"
+    # 그 외 시간대 예비 확인 (실제로는 40~60분 간격으로 실행됨)
+    - cron: "*/30 * * * *"
   workflow_dispatch:
+
+# 새 실행이 뜨면 이전 실행을 넘겨받는다 (중복 감시 방지)
+concurrency:
+  group: kinfa-watch
+  cancel-in-progress: true
 
 jobs:
   watch:
     runs-on: ubuntu-latest
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
 
