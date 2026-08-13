@@ -2,22 +2,25 @@ name: kinfa-openedu-watch
 
 on:
   schedule:
-    # 하루 1회 cron 은 고빈도 cron 처럼 심하게 지연되지 않는다.
-    # 09:50 KST 에 뜬 실행이 14:30 KST 까지 살아 있으면서 1분마다 확인한다.
-    - cron: "50 0 * * *"
-    # 위 트리거가 건너뛰어졌을 때를 대비한 예비 (10:20 KST)
-    - cron: "20 1 * * *"
+    # 저빈도 cron 은 고빈도 cron 처럼 심하게 지연되지 않는다.
+    # 여기서 뜬 실행이 감시 시간대가 끝날 때까지 살아 있으면서 1분마다 확인한다.
+    - cron: "50 0 * * *"  # 09:50 KST ~ 10:30
+    - cron: "50 4 * * *"  # 13:50 KST ~ 14:30
+    # 위 트리거가 건너뛰어졌을 때를 대비한 예비
+    - cron: "10 1 * * *"  # 10:10 KST
+    - cron: "10 5 * * *"  # 14:10 KST
   workflow_dispatch:
 
-# 새 실행이 뜨면 이전 실행을 넘겨받는다 (중복 감시 방지)
+# 감시 중인 실행을 예비 트리거가 죽이지 않도록 취소가 아니라 대기시킨다.
+# 대기하던 실행은 시간대가 끝난 뒤 시작되므로 한 번만 확인하고 바로 끝난다.
 concurrency:
   group: kinfa-watch
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   watch:
     runs-on: ubuntu-latest
-    timeout-minutes: 300
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
