@@ -87,6 +87,12 @@ def login(cfg):
     jar.save(ignore_discard=True)
 
 
+def is_list_page(page: str) -> bool:
+    """로그인 리다이렉트/오류 페이지를 목록으로 오인해 알림이 튀는 것을 막는다.
+    검색 영역의 '찾기' 버튼은 진짜 목록 화면에만 있다."""
+    return "찾기" in page
+
+
 def list_text(page: str) -> str:
     """목록 영역(검색 '찾기' 버튼 ~ footer)만 잘라 태그 제거한 텍스트."""
     region = page.split("찾기", 1)[-1].split("<footer", 1)[0]
@@ -117,11 +123,15 @@ def notify(cfg, title: str, body: str):
 def main():
     cfg = load_cfg()
     page = fetch(LIST_URL)
-    if DENIED in page:
+    if DENIED in page or not is_list_page(page):
         login(cfg)
         page = fetch(LIST_URL)
         if DENIED in page:
             raise SystemExit("로그인은 됐지만 강사 권한으로 접근이 안 됩니다")
+    if not is_list_page(page):
+        # 목록이 아닌 화면을 '변경'으로 오인하면 알림이 계속 튄다. 조용히 넘긴다.
+        print("목록 화면을 못 받음 - 이번 확인은 건너뜀")
+        return
 
     if EMPTY in page:
         if os.path.exists(STATE):
@@ -154,6 +164,8 @@ def test():
     h = rsa_encrypt("pw", n, "10001")
     assert len(h) % 2 == 0 and int(h, 16) < int(n, 16)
     assert list_text("x찾기<div>가 나</div><footer>무시</footer>") == "가 나"
+    assert is_list_page("<div>찾기</div>")  # 진짜 목록 화면
+    assert not is_list_page("<noscript>자바스크립트를 지원하지 않는</noscript>")  # 리다이렉트 화면
     assert in_window(10 * 60) and in_window(14 * 60)  # 10시, 2시 정각
     assert in_window(9 * 60 + 50) and in_window(13 * 60 + 50)  # 10분 앞부터 켜짐
     assert in_window(10 * 60 + 29) and in_window(14 * 60 + 29)
