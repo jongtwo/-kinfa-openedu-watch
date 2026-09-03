@@ -27,6 +27,7 @@ jobs:
           path: |
             state.txt
             cookies.txt
+            lastlogin.txt
           key: kinfa-state-${{ github.run_id }}
           restore-keys: kinfa-state-
 

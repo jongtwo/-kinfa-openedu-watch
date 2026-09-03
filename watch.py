@@ -30,6 +30,12 @@ NET_ERRORS = (urllib.error.URLError, TimeoutError, ConnectionError)
 HERE = os.path.dirname(os.path.abspath(__file__))
 STATE = os.path.join(HERE, "state.txt")
 COOKIES = os.path.join(HERE, "cookies.txt")
+LAST_LOGIN = os.path.join(HERE, "lastlogin.txt")
+PAUSE_UNTIL = os.path.join(HERE, "pause_until.txt")
+
+# 사이트가 중복 로그인을 막으므로, 세션이 끊기면 내가 곧바로 다시 로그인하지 않는다.
+# 사용자가 브라우저로 쓰는 중일 수 있어서, 이 시간만큼 물러나 있는다.
+RELOGIN_WAIT = 1800
 
 # 세션 쿠키를 파일에 보관해 재사용한다. 매 실행마다 로그인하면 차단당함.
 jar = http.cookiejar.MozillaCookieJar(COOKIES)
@@ -85,6 +91,19 @@ def login(cfg):
     if str(res.get("resultCode")) != "0":
         raise SystemExit("로그인 실패: %s" % res.get("resultMsg"))
     jar.save(ignore_discard=True)
+    open(LAST_LOGIN, "w").write(str(time.time()))
+
+
+def read_time(path):
+    try:
+        return float(open(path).read().strip())
+    except (OSError, ValueError):
+        return 0.0
+
+
+def paused() -> bool:
+    """PAUSE.bat 로 걸어둔 일시중지가 아직 유효한가."""
+    return time.time() < read_time(PAUSE_UNTIL)
 
 
 def is_list_page(page: str) -> bool:
@@ -122,8 +141,18 @@ def notify(cfg, title: str, body: str):
 
 def main():
     cfg = load_cfg()
+    if paused():
+        print("일시중지 중 - 건너뜀 (%d분 남음)" % ((read_time(PAUSE_UNTIL) - time.time()) / 60))
+        return
     page = fetch(LIST_URL)
     if DENIED in page or not is_list_page(page):
+        # 방금 로그인했는데 벌써 세션이 끊겼다 = 사용자가 브라우저로 접속한 것.
+        # 여기서 또 로그인하면 사용자가 튕기므로 물러난다.
+        waited = time.time() - read_time(LAST_LOGIN)
+        if waited < RELOGIN_WAIT:
+            print("세션이 끊김 - 사용자가 사이트 사용 중으로 보여 %d분 뒤 재시도"
+                  % ((RELOGIN_WAIT - waited) / 60))
+            return
         login(cfg)
         page = fetch(LIST_URL)
         if DENIED in page:
@@ -164,6 +193,7 @@ def test():
     h = rsa_encrypt("pw", n, "10001")
     assert len(h) % 2 == 0 and int(h, 16) < int(n, 16)
     assert list_text("x찾기<div>가 나</div><footer>무시</footer>") == "가 나"
+    assert read_time(os.path.join(HERE, "없는파일.txt")) == 0.0  # 없으면 0, 예외 아님
     assert is_list_page("<div>찾기</div>")  # 진짜 목록 화면
     assert not is_list_page("<noscript>자바스크립트를 지원하지 않는</noscript>")  # 리다이렉트 화면
     assert in_window(10 * 60) and in_window(14 * 60)  # 10시, 2시 정각

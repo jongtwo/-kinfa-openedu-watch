@@ -2,3 +2,5 @@ config.json
 cookies.txt
 state.txt
 __pycache__/
+lastlogin.txt
+pause_until.txt
