@@ -228,19 +228,26 @@ if __name__ == "__main__":
     elif os.environ.get("GITHUB_ACTIONS") and in_window(kst_minutes()):
         # GitHub 은 cron 트리거를 40~60분까지 지연시킨다. 그래서 시간대가 시작되면
         # 이 실행 하나가 끝까지 살아 있으면서 INTERVAL 마다 확인한다 (세션 재사용).
-        fails = 0
+        fails, told = 0, False
         while in_window(kst_minutes()):
             try:
                 main()
                 fails = 0
             except NET_ERRORS + (SystemExit,) as e:
+                # 여기서 중단하면 남은 시간대를 통째로 놓친다. 계속 돌되,
+                # 3회 연속이면 원인을 폰으로 한 번만 알려준다.
                 fails += 1
                 print("확인 실패(%d회 연속): %s" % (fails, e))
-                if fails >= 3:  # 일시적 먹통이 아니라 진짜 고장이면 알 수 있게 실패시킨다
-                    raise
+                if fails >= 3 and not told:
+                    told = True
+                    try:
+                        notify(load_cfg(), "감시 오류", str(e))
+                    except Exception:
+                        pass
             time.sleep(INTERVAL)
     else:
         try:
             main()
-        except NET_ERRORS as e:
-            print("일시적 오류 무시:", e)
+        except NET_ERRORS + (SystemExit,) as e:
+            # 실패로 끝내면 GitHub 이 경고 메일을 보낸다. 다음 실행에서 어차피 재시도한다.
+            print("이번 확인 실패 - 넘어감:", e)
