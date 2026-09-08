@@ -83,7 +83,9 @@ def login(cfg):
     mod = re.search(r'id="rsaPublicKeyModulus"\s+value="([0-9a-fA-F]+)"', page)
     exp = re.search(r'id="rsaPublicKeyExponent"\s+value="([0-9a-fA-F]+)"', page)
     if not (mod and exp):
-        raise SystemExit("로그인 페이지 구조가 바뀌었습니다 (RSA 공개키를 못 찾음)")
+        # 어떤 화면을 받았는지 같이 알려줘야 원인(차단/대기열/구조변경)을 가릴 수 있다.
+        head = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", page)).strip()[:150]
+        raise SystemExit("RSA 공개키를 못 찾음. 받은 화면: " + head)
     res = json.loads(fetch(BASE + "/login/loginExecAjax.do", {
         "mberId": cfg["id"],
         "mberPassword": rsa_encrypt(cfg["pw"], mod.group(1), exp.group(1)),
